@@ -306,15 +306,8 @@
     <div id="sync-indicator" class="sync-indicator">已同步</div>
 
 <script>
-// ========== Supabase Config ==========
-var SUPABASE_URL = 'https://temssxxgfaowtqpdazwp.supabase.co';
-var SUPABASE_KEY = 'sb_publishable_nIrEsY0UuK7R4m2gxUfPOg_BDm6uWtq';
-var SUPABASE_HEADERS = {
-    'apikey': SUPABASE_KEY,
-    'Authorization': 'Bearer ' + SUPABASE_KEY,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=representation'
-};
+// ========== localStorage Storage ==========
+var STORAGE_KEY = 'yijia_orders';
 
 // ========== State ==========
 var orders = [];
@@ -322,54 +315,44 @@ var currentOrderId = null;
 var _confirmCallback = null;
 var _isSaving = false;
 
-// ========== Supabase API helpers ==========
-function supabaseGet() {
-    return fetch(SUPABASE_URL + '/rest/v1/orders?select=*&order=created_at.desc', {
-        headers: SUPABASE_HEADERS
-    }).then(function(r) {
-        if (!r.ok) throw new Error('加载失败: ' + r.status);
-        return r.json();
-    });
+// ========== localStorage helpers ==========
+function loadFromStorage() {
+    try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    return [];
 }
 
-function supabaseInsert(data) {
-    return fetch(SUPABASE_URL + '/rest/v1/orders', {
-        method: 'POST',
-        headers: SUPABASE_HEADERS,
-        body: JSON.stringify(data)
-    }).then(function(r) {
-        if (!r.ok) throw new Error('保存失败: ' + r.status);
-        return r.json();
-    });
+function saveToStorage() {
+    try {
+        // Only save lightweight fields; screenshots are stored separately
+        var toSave = orders.map(function(o) {
+            return {
+                id: o.id, shop: o.shop, orderNo: o.orderNo, amount: o.amount,
+                project: o.project, channel: o.channel, status: o.status,
+                createdAt: o.createdAt, screenshot: o.screenshot || ''
+            };
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    } catch(e) {
+        // Storage full - try without screenshots
+        try {
+            var lite = orders.map(function(o) {
+                return { id:o.id, shop:o.shop, orderNo:o.orderNo, amount:o.amount,
+                    project:o.project, channel:o.channel, status:o.status,
+                    createdAt:o.createdAt, screenshot:'' };
+            });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(lite));
+            showToast('存储空间不足，截图已自动清理', 'error');
+        } catch(e2) {
+            showToast('存储空间已满', 'error');
+        }
+    }
 }
 
-function supabaseUpdate(id, data) {
-    return fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + id, {
-        method: 'PATCH',
-        headers: SUPABASE_HEADERS,
-        body: JSON.stringify(data)
-    }).then(function(r) {
-        if (!r.ok) throw new Error('更新失败: ' + r.status);
-        return r.json();
-    });
-}
-
-function supabaseDelete(id) {
-    return fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + id, {
-        method: 'DELETE',
-        headers: SUPABASE_HEADERS
-    }).then(function(r) {
-        if (!r.ok) throw new Error('删除失败: ' + r.status);
-    });
-}
-
-function supabaseDeleteMultiple(ids) {
-    return fetch(SUPABASE_URL + '/rest/v1/orders?id=in.(' + ids.join(',') + ')', {
-        method: 'DELETE',
-        headers: SUPABASE_HEADERS
-    }).then(function(r) {
-        if (!r.ok) throw new Error('删除失败: ' + r.status);
-    });
+function genId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
 }
 
 function showSync(msg, isError) {
@@ -381,54 +364,18 @@ function showSync(msg, isError) {
 
 // ========== Load & Init ==========
 function loadOrders() {
-    document.getElementById('loading').classList.remove('hidden');
-    var timeout = setTimeout(function() {
-        document.getElementById('loading').innerHTML = '<p style="color:#f59e0b;font-size:16px;">⏳ 数据库连接超时</p><p style="color:#6b7280;font-size:13px;margin-top:8px;">Supabase 服务器在国外，连接较慢</p><button onclick="loadOrders()" style="margin-top:12px;padding:8px 24px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">点击重试</button>';
-    }, 8000);
-
-    supabaseGet().then(function(data) {
-        clearTimeout(timeout);
-        orders = data.map(function(row) {
-            return {
-                id: String(row.id),
-                shop: row.shop || '',
-                orderNo: row.order_no || '',
-                amount: parseFloat(row.amount) || 0,
-                project: row.project || '',
-                channel: row.channel || '',
-                status: row.status || '待处理',
-                createdAt: row.created_at || new Date().toISOString(),
-                screenshot: row.screenshot || ''
-            };
-        });
-        document.getElementById('loading').classList.add('hidden');
-        renderOrderList();
-    }).catch(function(err) {
-        clearTimeout(timeout);
-        document.getElementById('loading').innerHTML = '<p style="color:#ef4444;font-size:16px;">❌ 数据库连接失败</p><p style="color:#6b7280;font-size:13px;margin-top:8px;">' + err.message + '</p><p style="color:#6b7280;font-size:13px;margin-top:4px;">请确保已在 Supabase SQL Editor 中执行了建表语句</p><button onclick="loadOrders()" style="margin-top:12px;padding:8px 24px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">点击重试</button>';
-    });
+    orders = loadFromStorage();
+    // Sort by createdAt desc
+    orders.sort(function(a,b) { return (b.createdAt||'').localeCompare(a.createdAt||''); });
+    document.getElementById('loading').classList.add('hidden');
+    renderOrderList();
 }
 
 function refreshOrders() {
-    supabaseGet().then(function(data) {
-        orders = data.map(function(row) {
-            return {
-                id: String(row.id),
-                shop: row.shop || '',
-                orderNo: row.order_no || '',
-                amount: parseFloat(row.amount) || 0,
-                project: row.project || '',
-                channel: row.channel || '',
-                status: row.status || '待处理',
-                createdAt: row.created_at || new Date().toISOString(),
-                screenshot: row.screenshot || ''
-            };
-        });
-        renderOrderList();
-        showSync('已同步');
-    }).catch(function(err) {
-        showSync('同步失败', true);
-    });
+    orders = loadFromStorage();
+    orders.sort(function(a,b) { return (b.createdAt||'').localeCompare(a.createdAt||''); });
+    renderOrderList();
+    showSync('已同步');
 }
 
 loadOrders();
@@ -436,11 +383,6 @@ loadOrders();
 // Set default month
 var now = new Date();
 document.getElementById('stats-month').value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-
-// Auto refresh every 15 seconds
-setInterval(function() {
-    if (!_isSaving) refreshOrders();
-}, 15000);
 
 // ========== Toast ==========
 function showToast(msg, type) {
@@ -502,24 +444,16 @@ function addOrder() {
 }
 
 function doInsert(shop, orderNo, amount, project, channel, status, screenshot) {
-    _isSaving = true;
-    supabaseInsert({
-        shop: shop,
-        order_no: orderNo,
-        amount: amount,
-        project: project,
-        channel: channel,
-        status: status,
-        screenshot: screenshot
-    }).then(function(result) {
-        _isSaving = false;
-        showToast('订单添加成功');
-        closeRegisterModal();
-        refreshOrders();
-    }).catch(function(err) {
-        _isSaving = false;
-        showToast('添加失败: ' + err.message, 'error');
-    });
+    var newOrder = {
+        id: genId(), shop: shop, orderNo: orderNo, amount: amount,
+        project: project, channel: channel, status: status,
+        createdAt: new Date().toISOString(), screenshot: screenshot || ''
+    };
+    orders.unshift(newOrder);
+    saveToStorage();
+    showToast('订单添加成功');
+    closeRegisterModal();
+    renderOrderList();
 }
 
 // ========== Render List ==========
@@ -684,39 +618,24 @@ function saveEdit() {
     } else { finishEdit(upd, id); }
 }
 function finishEdit(upd, id) {
-    _isSaving = true;
-    supabaseUpdate(id, {
-        shop: upd.shop,
-        order_no: upd.orderNo,
-        amount: upd.amount,
-        project: upd.project,
-        channel: upd.channel,
-        status: upd.status,
-        screenshot: upd.screenshot
-    }).then(function() {
-        _isSaving = false;
-        showToast('订单更新成功');
-        closeEditModal();
-        refreshOrders();
-    }).catch(function(err) {
-        _isSaving = false;
-        showToast('更新失败: ' + err.message, 'error');
-    });
+    var idx = orders.findIndex(function(x){return x.id===id;});
+    if(idx!==-1) {
+        orders[idx] = upd;
+        saveToStorage();
+    }
+    showToast('订单更新成功');
+    closeEditModal();
+    renderOrderList();
 }
 
 // ========== Delete Current ==========
 function confirmDeleteCurrent() {
     showConfirm('确定要删除此订单吗？', function(){
-        _isSaving = true;
-        supabaseDelete(currentOrderId).then(function() {
-            _isSaving = false;
-            showToast('订单已删除');
-            closeDetailModal();
-            refreshOrders();
-        }).catch(function(err) {
-            _isSaving = false;
-            showToast('删除失败: ' + err.message, 'error');
-        });
+        orders = orders.filter(function(x){return x.id!==currentOrderId;});
+        saveToStorage();
+        showToast('订单已删除');
+        closeDetailModal();
+        renderOrderList();
     });
 }
 
@@ -724,24 +643,18 @@ function confirmDeleteCurrent() {
 function changeStatus(newStatus, orderId) {
     var o = orders.find(function(x){return x.id===orderId;});
     if(!o) return;
-    _isSaving = true;
-    supabaseUpdate(orderId, { status: newStatus }).then(function() {
-        _isSaving = false;
-        o.status = newStatus;
-        if(newStatus==='已上传') { renderOrderList(); }
-        else {
-            var row = document.querySelector('tr[data-id="'+orderId+'"]');
-            if(row) {
-                row.className = row.className.replace(/\bg-(yellow|green|red)-(50|100)\b/g,'');
-                var cls = newStatus==='待处理'?'bg-yellow-50':newStatus==='已上传'?'bg-red-100':newStatus==='已完成'?'bg-green-50':'bg-red-50';
-                row.classList.add(cls);
-            }
+    o.status = newStatus;
+    saveToStorage();
+    if(newStatus==='已上传') { renderOrderList(); }
+    else {
+        var row = document.querySelector('tr[data-id="'+orderId+'"]');
+        if(row) {
+            row.className = row.className.replace(/\bg-(yellow|green|red)-(50|100)\b/g,'');
+            var cls = newStatus==='待处理'?'bg-yellow-50':newStatus==='已上传'?'bg-red-100':newStatus==='已完成'?'bg-green-50':'bg-red-50';
+            row.classList.add(cls);
         }
-        showSync('已同步');
-    }).catch(function(err) {
-        _isSaving = false;
-        showSync('同步失败', true);
-    });
+    }
+    showSync('已同步');
 }
 
 // ========== Batch Delete ==========
@@ -750,16 +663,11 @@ function batchDelete() {
     document.querySelectorAll('.order-checkbox:checked').forEach(function(cb){ids.push(cb.dataset.id);});
     if(ids.length===0){showToast('请至少选择一个订单','error');return;}
     showConfirm('确定要删除选中的 '+ids.length+' 条订单吗？', function(){
-        _isSaving = true;
-        supabaseDeleteMultiple(ids).then(function() {
-            _isSaving = false;
-            showToast('成功删除 '+ids.length+' 条订单');
-            refreshOrders();
-            document.getElementById('select-all').checked=false;
-        }).catch(function(err) {
-            _isSaving = false;
-            showToast('删除失败: ' + err.message, 'error');
-        });
+        orders = orders.filter(function(x){return ids.indexOf(x.id)===-1;});
+        saveToStorage();
+        showToast('成功删除 '+ids.length+' 条订单');
+        renderOrderList();
+        document.getElementById('select-all').checked=false;
     });
 }
 
@@ -774,19 +682,14 @@ function executeBatchStatus() {
     var ids = [];
     document.querySelectorAll('.order-checkbox:checked:not(:disabled)').forEach(function(cb){ids.push(cb.dataset.id);});
     var ns = document.getElementById('batch-target-status').value;
-    _isSaving = true;
-    var promises = ids.map(function(id) {
-        return supabaseUpdate(id, { status: ns });
+    ids.forEach(function(id) {
+        var o = orders.find(function(x){return x.id===id;});
+        if(o) o.status = ns;
     });
-    Promise.all(promises).then(function() {
-        _isSaving = false;
-        refreshOrders();
-        document.getElementById('batch-status-modal').classList.add('hidden');
-        showToast('成功修改 '+ids.length+' 条订单状态为「'+ns+'」');
-    }).catch(function(err) {
-        _isSaving = false;
-        showToast('修改失败: ' + err.message, 'error');
-    });
+    saveToStorage();
+    renderOrderList();
+    document.getElementById('batch-status-modal').classList.add('hidden');
+    showToast('成功修改 '+ids.length+' 条订单状态为「'+ns+'」');
 }
 
 // ========== Stats ==========
