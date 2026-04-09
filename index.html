@@ -381,7 +381,13 @@ function showSync(msg, isError) {
 
 // ========== Load & Init ==========
 function loadOrders() {
+    document.getElementById('loading').classList.remove('hidden');
+    var timeout = setTimeout(function() {
+        document.getElementById('loading').innerHTML = '<p style="color:#f59e0b;font-size:16px;">⏳ 数据库连接超时</p><p style="color:#6b7280;font-size:13px;margin-top:8px;">Supabase 服务器在国外，连接较慢</p><button onclick="loadOrders()" style="margin-top:12px;padding:8px 24px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">点击重试</button>';
+    }, 8000);
+
     supabaseGet().then(function(data) {
+        clearTimeout(timeout);
         orders = data.map(function(row) {
             return {
                 id: String(row.id),
@@ -398,7 +404,8 @@ function loadOrders() {
         document.getElementById('loading').classList.add('hidden');
         renderOrderList();
     }).catch(function(err) {
-        document.getElementById('loading').innerHTML = '<p style="color:#ef4444;font-size:16px;">❌ 数据库连接失败</p><p style="color:#6b7280;font-size:13px;margin-top:8px;">' + err.message + '</p><p style="color:#6b7280;font-size:13px;margin-top:4px;">请确保已在 Supabase SQL Editor 中执行了建表语句</p>';
+        clearTimeout(timeout);
+        document.getElementById('loading').innerHTML = '<p style="color:#ef4444;font-size:16px;">❌ 数据库连接失败</p><p style="color:#6b7280;font-size:13px;margin-top:8px;">' + err.message + '</p><p style="color:#6b7280;font-size:13px;margin-top:4px;">请确保已在 Supabase SQL Editor 中执行了建表语句</p><button onclick="loadOrders()" style="margin-top:12px;padding:8px 24px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">点击重试</button>';
     });
 }
 
