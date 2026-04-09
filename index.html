@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宜嘉订单管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; background: #f3f4f6; min-height: 100vh; color: #1f2937; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px 16px; }
+        h1 { text-align: center; font-size: 28px; font-weight: 700; color: #111827; margin-bottom: 28px; }
+        .loading-bar { text-align:center; padding:40px; color:#6b7280; font-size:15px; }
+        .loading-bar .spinner { display:inline-block; width:24px; height:24px; border:3px solid #e5e7eb; border-top-color:#3b82f6; border-radius:50%; animation:spin .6s linear infinite; margin-bottom:8px; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .tabs { display: flex; border-bottom: 2px solid #e5e7eb; margin-bottom: 20px; }
+        .tab-btn { padding: 12px 24px; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
+        .card { background: white; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; }
+        .card-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+        .card-header h2 { font-size: 20px; font-weight: 600; }
+        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-light { background: #e5e7eb; color: #374151; }
+        .btn-sm { padding: 5px 12px; font-size: 13px; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .search-group { display: flex; border-radius: 6px; overflow: hidden; }
+        .search-group input { padding: 8px 12px; border: 1px solid #d1d5db; border-right: none; outline: none; width: 240px; font-size: 14px; border-radius: 6px 0 0 6px; }
+        .search-group button { border-radius: 0 6px 6px 0 !important; }
+        select.filter-select { padding: 8px 32px 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; outline: none; font-size: 14px; -webkit-appearance: menulist; appearance: menulist; color: #000; background: #fff; min-height: 36px; }
+        .table-wrap { overflow-x: auto; min-width: 1100px; }
+        table { width: 100%; border-collapse: collapse; table-layout: auto; }
+        th { background: #f9fafb; text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+        td { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-size: 14px; white-space: nowrap; }
+        tr:hover { background: #f9fafb; }
+        tr.bg-yellow-50 { background-color: #fffbeb; }
+        tr.bg-green-50 { background-color: #ecfdf5; }
+        tr.bg-red-50 { background-color: #fef2f2; }
+        tr.bg-red-100 { background-color: #fee2e2; }
+        .status-pending { background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 9999px; font-size: 13px; font-weight: 500; }
+        .status-uploaded { background: #fecaca; color: #991b1b; padding: 4px 12px; border-radius: 9999px; font-size: 13px; font-weight: 500; }
+        .status-completed { background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 9999px; font-size: 13px; font-weight: 500; }
+        .status-cancelled { background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 9999px; font-size: 13px; font-weight: 500; }
+        select.status-select { min-width: 120px; height: 34px; width: 100%; -webkit-appearance: menulist; appearance: menulist; color: #000; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-overlay.hidden { display: none; }
+        .modal { background: white; border-radius: 12px; box-shadow: 0 25px 50px rgba(0,0,0,0.25); max-width: 720px; width: calc(100% - 32px); max-height: calc(100vh - 64px); overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e5e7eb; }
+        .modal-header h3 { font-size: 18px; font-weight: 600; }
+        .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #9ca3af; line-height: 1; }
+        .close-btn:hover { color: #374151; }
+        .modal-body { padding: 24px; }
+        .modal-footer { padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 8px; }
+        form label { display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 4px; }
+        form input[type=text], form input[type=number], form input[type=file] { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 6px; outline: none; font-size: 14px; transition: border-color 0.15s; }
+        form input:focus { border-color: #3b82f6; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+        .form-grid-full > div { grid-column: 1 / -1; }
+        .img-preview img { max-width: 200px; max-height: 150px; object-fit: contain; border-radius: 8px; border: 1px solid #e5e7eb; }
+        .thumb-img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; cursor: pointer; transition: opacity 0.15s; }
+        .thumb-img:hover { opacity: 0.8; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #9ca3af; }
+        .empty-state.hidden { display: none; }
+        input[type=checkbox].order-checkbox { width: 16px; height: 16px; accent-color: #3b82f6; cursor: pointer; }
+        .view-btn { color: #3b82f6; background: none; border: none; cursor: pointer; font-size: 14px; }
+        .view-btn:hover { color: #1d4ed8; text-decoration: underline; }
+        .modal.modal-wide { max-width: 800px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+        .stat-card { background: #f9fafb; padding: 16px; border-radius: 8px; }
+        .stat-card .label { font-size: 13px; color: #6b7280; }
+        .stat-card .value { font-size: 24px; font-weight: 700; color: #111827; margin-top: 4px; }
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-radius: 8px; margin-bottom: 8px; }
+        .stat-row.pending { background: #fffbeb; }
+        .stat-row.uploaded { background: #fee2e2; }
+        .stat-row.completed { background: #ecfdf5; }
+        .stat-row.cancelled { background: #fef2f2; }
+        .stat-row .name { font-weight: 500; }
+        .img-full-modal .modal { background: transparent; box-shadow: none; max-width: 900px; }
+        .img-full-modal img { max-width: 100%; max-height: 85vh; object-contain; border-radius: 8px; }
+        .img-close { position: absolute; top: 16px; right: 16px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; }
+        .img-close:hover { background: rgba(0,0,0,0.7); }
+        .lock-hint { font-size: 11px; color: #dc2626; display: block; margin-top: 2px; }
+        .toast { position: fixed; top: 20px; right: 20px; background: white; padding: 14px 22px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 9999; font-size: 14px; font-weight: 500; animation: slideIn 0.3s ease-out; display: flex; align-items: center; gap: 8px; }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+        .sync-indicator { position:fixed; bottom:16px; right:16px; background:#10b981; color:white; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:500; z-index:999; opacity:0; transition:opacity .3s; }
+        .sync-indicator.show { opacity:1; }
+        .sync-indicator.error { background:#ef4444; }
+        @media (max-width: 768px) {
+            .card-header { flex-direction: column; align-items: stretch; }
+            .toolbar { flex-direction: column; }
+            .search-group input { width: 100%; }
+            h1 { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 宜嘉订单管理系统</h1>
+
+        <div id="loading" class="loading-bar"><div class="spinner"></div><br>正在连接数据库...</div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button id="tab-query" class="tab-btn active" onclick="switchTab('query')">订单查询</button>
+        </div>
+
+        <!-- Register Modal -->
+        <div id="register-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="modal" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3>订单登记</h3>
+                    <button class="close-btn" onclick="document.getElementById('register-modal').classList.add('hidden')">&times;</button>
+                </div>
+                <form id="order-form" onsubmit="event.preventDefault();addOrder();">
+                    <div class="modal-body">
+                        <div class="form-grid">
+                            <div><label>店铺</label><input type="text" id="shop" required placeholder="输入店铺名称"></div>
+                            <div><label>单号</label><input type="text" id="order-no" required placeholder="输入订单号"></div>
+                            <div><label>金额</label><input type="number" id="amount" step="0.01" required placeholder="0.00"></div>
+                            <div><label>项目</label><input type="text" id="project" required placeholder="输入项目"></div>
+                            <div><label>渠道</label><input type="text" id="channel" required placeholder="输入渠道"></div>
+                            <div>
+                                <label>状态</label>
+                                <select id="status" class="filter-select" style="width:100%;">
+                                    <option value="待处理">待处理</option>
+                                    <option value="已上传">已上传</option>
+                                    <option value="已完成">已完成</option>
+                                    <option value="已取消">已取消</option>
+                                </select>
+                            </div>
+                            <div class="form-grid-full">
+                                <label>截图上传</label>
+                                <input type="file" id="screenshot" accept="image/*" onchange="previewImage(this,'preview-img','image-preview')">
+                                <div id="image-preview" class="img-preview hidden"><br><img id="preview-img" src="" alt="预览"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">提交订单</button>
+                        <button type="button" class="btn btn-light" onclick="closeRegisterModal()">取消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Query Page -->
+        <div id="query-page" class="card">
+            <div class="card-header">
+                <h2>订单查询</h2>
+                <div class="toolbar">
+                    <div class="search-group">
+                        <input type="text" id="search-input" placeholder="搜索单号/店铺/项目/渠道" oninput="renderOrderList()">
+                        <button class="btn btn-primary" onclick="renderOrderList()">搜索</button>
+                    </div>
+                    <select id="status-filter" class="filter-select" onchange="renderOrderList()">
+                        <option value="">全部状态</option>
+                        <option value="待处理">待处理</option>
+                        <option value="已上传">已上传</option>
+                        <option value="已完成">已完成</option>
+                        <option value="已取消">已取消</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" onclick="openRegisterModal()">+ 新增订单</button>
+                    <button class="btn btn-danger btn-sm" onclick="batchDelete()">批量删除</button>
+                    <button class="btn btn-warning btn-sm" onclick="openBatchStatusModal()">批量改状态</button>
+                    <button class="btn btn-success btn-sm" onclick="openStatsModal()">月统计</button>
+                    <button class="btn btn-secondary btn-sm" onclick="exportCSV()">导出CSV</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:44px"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)"></th>
+                            <th style="width:56px">序号</th>
+                            <th>店铺</th>
+                            <th>单号</th>
+                            <th style="width:100px">金额</th>
+                            <th>项目</th>
+                            <th>渠道</th>
+                            <th style="width:140px">状态</th>
+                            <th style="width:72px">截图</th>
+                            <th style="width:170px">创建时间</th>
+                            <th style="width:70px">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="order-list"></tbody>
+                </table>
+            </div>
+            <div id="empty-state" class="empty-state">
+                <p style="font-size:16px;margin-bottom:8px;">📭 暂无订单数据</p>
+                <p style="font-size:13px;">点击「新增订单」添加第一条记录</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detail-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeDetailModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header"><h3>订单详情</h3><button class="close-btn" onclick="closeDetailModal()">&times;</button></div>
+            <div class="modal-body" id="detail-content"></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary btn-sm" id="edit-detail-btn" onclick="openEditModalFromDetail()">编辑</button>
+                <button class="btn btn-danger btn-sm" id="delete-detail-btn" onclick="confirmDeleteCurrent()">删除</button>
+                <button class="btn btn-light btn-sm" onclick="closeDetailModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeEditModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header"><h3>编辑订单</h3><button class="close-btn" onclick="closeEditModal()">&times;</button></div>
+            <form id="edit-form" onsubmit="event.preventDefault();saveEdit();">
+                <div class="modal-body">
+                    <input type="hidden" id="edit-id">
+                    <div class="form-grid">
+                        <div><label>店铺</label><input type="text" id="edit-shop" required></div>
+                        <div><label>单号</label><input type="text" id="edit-order-no" required></div>
+                        <div><label>金额</label><input type="number" id="edit-amount" step="0.01" required></div>
+                        <div><label>项目</label><input type="text" id="edit-project" required></div>
+                        <div><label>渠道</label><input type="text" id="edit-channel" required></div>
+                        <div>
+                            <label>状态</label>
+                            <select id="edit-status" class="filter-select" style="width:100%;">
+                                <option value="待处理">待处理</option>
+                                <option value="已上传">已上传</option>
+                                <option value="已完成">已完成</option>
+                                <option value="已取消">已取消</option>
+                            </select>
+                        </div>
+                        <div class="form-grid-full">
+                            <label>截图（可重新选择）</label>
+                            <input type="file" id="edit-screenshot" accept="image/*" onchange="previewImage(this,'edit-preview-img','edit-image-preview')">
+                            <div id="edit-image-preview" class="img-preview hidden"><br><img id="edit-preview-img" src="" alt="预览"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">保存修改</button>
+                    <button type="button" class="btn btn-light" onclick="closeEditModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeConfirmModal()">
+        <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+            <div class="modal-header"><h3>确认操作</h3></div>
+            <div class="modal-body"><p id="confirm-msg"></p></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary btn-sm" id="confirm-yes-btn" onclick="doConfirm()">确定</button>
+                <button class="btn btn-light btn-sm" onclick="closeConfirmModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch Status Modal -->
+    <div id="batch-status-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+        <div class="modal" style="max-width:440px" onclick="event.stopPropagation()">
+            <div class="modal-header"><h3>批量修改状态</h3><button class="close-btn" onclick="document.getElementById('batch-status-modal').classList.add('hidden')">&times;</button></div>
+            <div class="modal-body">
+                <label>目标状态</label>
+                <select id="batch-target-status" class="filter-select" style="width:100%;">
+                    <option value="待处理">待处理</option>
+                    <option value="已上传">已上传</option>
+                    <option value="已完成">已完成</option>
+                    <option value="已取消">已取消</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-light btn-sm" onclick="document.getElementById('batch-status-modal').classList.add('hidden')">取消</button>
+                <button class="btn btn-primary btn-sm" onclick="executeBatchStatus()">确认修改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Modal -->
+    <div id="stats-modal" class="modal-overlay hidden" onclick="if(event.target===this)document.getElementById('stats-modal').classList.add('hidden')">
+        <div class="modal modal-wide" onclick="event.stopPropagation()">
+            <div class="modal-header"><h3>月统计</h3><button class="close-btn" onclick="document.getElementById('stats-modal').classList.add('hidden')">&times;</button></div>
+            <div class="modal-body">
+                <label>选择月份</label><br>
+                <input type="month" id="stats-month" style="padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;margin-bottom:16px;" onchange="updateStats()">
+                <div id="stats-content"></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-light btn-sm" onclick="document.getElementById('stats-modal').classList.add('hidden')">关闭</button></div>
+        </div>
+    </div>
+
+    <!-- Image Full Preview Modal -->
+    <div id="image-preview-modal" class="modal-overlay img-full-modal hidden" onclick="document.getElementById('image-preview-modal').classList.add('hidden')">
+        <button class="close img-close" onclick="document.getElementById('image-preview-modal').classList.add('hidden')">&times;</button>
+        <img id="preview-full-image" src="" alt="图片预览">
+    </div>
+
+    <!-- Sync indicator -->
+    <div id="sync-indicator" class="sync-indicator">已同步</div>
+
+<script>
+// ========== Supabase Config ==========
+var SUPABASE_URL = 'https://temssxxgfaowtqpdazwp.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_nIrEsY0UuK7R4m2gxUfPOg_BDm6uWtq';
+var SUPABASE_HEADERS = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
+};
+
+// ========== State ==========
+var orders = [];
+var currentOrderId = null;
+var _confirmCallback = null;
+var _isSaving = false;
+
+// ========== Supabase API helpers ==========
+function supabaseGet() {
+    return fetch(SUPABASE_URL + '/rest/v1/orders?select=*&order=created_at.desc', {
+        headers: SUPABASE_HEADERS
+    }).then(function(r) {
+        if (!r.ok) throw new Error('加载失败: ' + r.status);
+        return r.json();
+    });
+}
+
+function supabaseInsert(data) {
+    return fetch(SUPABASE_URL + '/rest/v1/orders', {
+        method: 'POST',
+        headers: SUPABASE_HEADERS,
+        body: JSON.stringify(data)
+    }).then(function(r) {
+        if (!r.ok) throw new Error('保存失败: ' + r.status);
+        return r.json();
+    });
+}
+
+function supabaseUpdate(id, data) {
+    return fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + id, {
+        method: 'PATCH',
+        headers: SUPABASE_HEADERS,
+        body: JSON.stringify(data)
+    }).then(function(r) {
+        if (!r.ok) throw new Error('更新失败: ' + r.status);
+        return r.json();
+    });
+}
+
+function supabaseDelete(id) {
+    return fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + id, {
+        method: 'DELETE',
+        headers: SUPABASE_HEADERS
+    }).then(function(r) {
+        if (!r.ok) throw new Error('删除失败: ' + r.status);
+    });
+}
+
+function supabaseDeleteMultiple(ids) {
+    return fetch(SUPABASE_URL + '/rest/v1/orders?id=in.(' + ids.join(',') + ')', {
+        method: 'DELETE',
+        headers: SUPABASE_HEADERS
+    }).then(function(r) {
+        if (!r.ok) throw new Error('删除失败: ' + r.status);
+    });
+}
+
+function showSync(msg, isError) {
+    var el = document.getElementById('sync-indicator');
+    el.textContent = msg;
+    el.className = 'sync-indicator show' + (isError ? ' error' : '');
+    setTimeout(function() { el.className = 'sync-indicator'; }, 2000);
+}
+
+// ========== Load & Init ==========
+function loadOrders() {
+    supabaseGet().then(function(data) {
+        orders = data.map(function(row) {
+            return {
+                id: String(row.id),
+                shop: row.shop || '',
+                orderNo: row.order_no || '',
+                amount: parseFloat(row.amount) || 0,
+                project: row.project || '',
+                channel: row.channel || '',
+                status: row.status || '待处理',
+                createdAt: row.created_at || new Date().toISOString(),
+                screenshot: row.screenshot || ''
+            };
+        });
+        document.getElementById('loading').classList.add('hidden');
+        renderOrderList();
+    }).catch(function(err) {
+        document.getElementById('loading').innerHTML = '<p style="color:#ef4444;font-size:16px;">❌ 数据库连接失败</p><p style="color:#6b7280;font-size:13px;margin-top:8px;">' + err.message + '</p><p style="color:#6b7280;font-size:13px;margin-top:4px;">请确保已在 Supabase SQL Editor 中执行了建表语句</p>';
+    });
+}
+
+function refreshOrders() {
+    supabaseGet().then(function(data) {
+        orders = data.map(function(row) {
+            return {
+                id: String(row.id),
+                shop: row.shop || '',
+                orderNo: row.order_no || '',
+                amount: parseFloat(row.amount) || 0,
+                project: row.project || '',
+                channel: row.channel || '',
+                status: row.status || '待处理',
+                createdAt: row.created_at || new Date().toISOString(),
+                screenshot: row.screenshot || ''
+            };
+        });
+        renderOrderList();
+        showSync('已同步');
+    }).catch(function(err) {
+        showSync('同步失败', true);
+    });
+}
+
+loadOrders();
+
+// Set default month
+var now = new Date();
+document.getElementById('stats-month').value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+
+// Auto refresh every 15 seconds
+setInterval(function() {
+    if (!_isSaving) refreshOrders();
+}, 15000);
+
+// ========== Toast ==========
+function showToast(msg, type) {
+    type = type || 'success';
+    var el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.innerHTML = (type==='success'?'✅':'❌') + ' ' + msg;
+    document.body.appendChild(el);
+    setTimeout(function() { el.remove(); }, 2800);
+}
+
+// ========== Tab ==========
+function switchTab(tab) {}
+
+// ========== Register Modal ==========
+function openRegisterModal() {
+    document.getElementById('order-form').reset();
+    document.getElementById('image-preview').classList.add('hidden');
+    document.getElementById('register-modal').classList.remove('hidden');
+}
+function closeRegisterModal() { document.getElementById('register-modal').classList.add('hidden'); }
+
+// ========== Image Preview ==========
+function previewImage(input, imgId, previewId) {
+    if(input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) { document.getElementById(imgId).src = e.target.result; document.getElementById(previewId).classList.remove('hidden'); };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+function previewImageFull(src) {
+    document.getElementById('preview-full-image').src = src;
+    document.getElementById('image-preview-modal').classList.remove('hidden');
+}
+
+// ========== Add Order ==========
+function addOrder() {
+    var shop = document.getElementById('shop').value.trim();
+    var orderNo = document.getElementById('order-no').value.trim();
+    var amount = parseFloat(document.getElementById('amount').value) || 0;
+    var project = document.getElementById('project').value.trim();
+    var channel = document.getElementById('channel').value.trim();
+    var status = document.getElementById('status').value || '待处理';
+
+    if(!orderNo) { showToast('请填写单号', 'error'); return; }
+    if(orders.some(function(o){ return o.orderNo === orderNo; })) { showToast('单号已存在，请重新输入', 'error'); return; }
+
+    var file = document.getElementById('screenshot').files[0];
+    if(file) {
+        status = '已完成';
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            doInsert(shop, orderNo, amount, project, channel, status, e.target.result);
+        };
+        reader.readAsDataURL(file);
+    } else {
+        doInsert(shop, orderNo, amount, project, channel, status, '');
+    }
+}
+
+function doInsert(shop, orderNo, amount, project, channel, status, screenshot) {
+    _isSaving = true;
+    supabaseInsert({
+        shop: shop,
+        order_no: orderNo,
+        amount: amount,
+        project: project,
+        channel: channel,
+        status: status,
+        screenshot: screenshot
+    }).then(function(result) {
+        _isSaving = false;
+        showToast('订单添加成功');
+        closeRegisterModal();
+        refreshOrders();
+    }).catch(function(err) {
+        _isSaving = false;
+        showToast('添加失败: ' + err.message, 'error');
+    });
+}
+
+// ========== Render List ==========
+function renderOrderList() {
+    var term = (document.getElementById('search-input').value||'').toLowerCase();
+    var sf = document.getElementById('status-filter').value;
+    var filtered = orders.filter(function(o){
+        if(!o.status) o.status = '待处理';
+        var matchS = !sf || o.status === sf;
+        var matchK = !term ||
+            (o.orderNo||'').toLowerCase().indexOf(term)!==-1 ||
+            (o.shop||'').toLowerCase().indexOf(term)!==-1 ||
+            (o.project||'').toLowerCase().indexOf(term)!==-1 ||
+            (o.channel||'').toLowerCase().indexOf(term)!==-1;
+        return matchS && matchK;
+    });
+
+    var tbody = document.getElementById('order-list');
+    var empty = document.getElementById('empty-state');
+
+    if(filtered.length === 0) {
+        tbody.innerHTML = ''; empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+
+    var html = '';
+    filtered.forEach(function(order, idx) {
+        var st = order.status || '待处理';
+        var isUp = st === '已上传';
+        var bgClass = isUp ? 'bg-red-100' :
+                      st === '待处理' ? 'bg-yellow-50' :
+                      st === '已完成' ? 'bg-green-50' : 'bg-red-50';
+
+        html += '<tr class="'+bgClass+'" data-id="'+order.id+'">';
+        html += '<td><input type="checkbox" class="order-checkbox" data-id="'+order.id+'"'+(isUp?' disabled':'')+' onchange="updateSelAll()"></td>';
+        html += '<td>'+(idx+1)+'</td>';
+        html += '<td>'+escHtml(order.shop||'')+'</td>';
+        html += '<td>'+escHtml(order.orderNo||'')+'</td>';
+        html += '<td>¥'+parseFloat(order.amount||0).toFixed(2)+'</td>';
+        html += '<td>'+escHtml(order.project||'')+'</td>';
+        html += '<td>'+escHtml(order.channel||'')+'</td>';
+        if(isUp) {
+            html += '<td><span class="status-uploaded">已上传</span><span class="lock-hint">状态已锁定</span></td>';
+        } else {
+            html += '<td><select class="status-select" data-id="'+order.id+'" onchange="changeStatus(this.value,\''+order.id+'\')">';
+            html += '<option value="待处理"'+(st==='待处理'?' selected':'')+'>待处理</option>';
+            html += '<option value="已上传"'+(st==='已上传'?' selected':'')+'>已上传</option>';
+            html += '<option value="已完成"'+(st==='已完成'?' selected':'')+'>已完成</option>';
+            html += '<option value="已取消"'+(st==='已取消'?' selected':'')+'>已取消</option>';
+            html += '</select></td>';
+        }
+        var thumbHtml = '-';
+        if(order.screenshot) {
+            var safeSrc = order.screenshot.replace(/'/g, "\\'");
+            thumbHtml = '<img class="thumb-img" src="'+order.screenshot+'" alt="截图" onclick="previewImageFull(this.src)" title="点击放大">';
+        }
+        html += '<td>'+thumbHtml+'</td>';
+        html += '<td>'+(new Date(order.createdAt)).toLocaleString()+'</td>';
+        html += '<td><button class="view-btn" onclick="showOrderDetail(\''+order.id+'\')">查看</button></td>';
+        html += '</tr>';
+    });
+    tbody.innerHTML = html;
+    updateSelAll();
+}
+
+function escHtml(str) {
+    var d = document.createElement('div');
+    d.textContent = str; return d.innerHTML;
+}
+
+// ========== Select All ==========
+function toggleSelectAll(checked) {
+    document.querySelectorAll('.order-checkbox:not(:disabled)').forEach(function(cb){ cb.checked = checked; });
+}
+function updateSelAll() {
+    var all = document.querySelectorAll('.order-checkbox:not(:disabled)');
+    var ck = document.querySelectorAll('.order-checkbox:checked:not(:disabled)');
+    document.getElementById('select-all').checked = all.length>0 && all.length===ck.length;
+}
+
+// ========== Detail ==========
+function showOrderDetail(id) {
+    currentOrderId = id;
+    var o = orders.find(function(x){return x.id===id});
+    if(!o) return;
+    var st = o.status || '待处理';
+    var isUp = st === '已上传';
+    var statusClass = st==='待处理'?'pending':st==='已上传'?'uploaded':st==='已完成'?'completed':'cancelled';
+
+    var c = document.getElementById('detail-content');
+    var detailHtml = '<div class="form-grid">';
+    detailHtml += '<div><strong>店铺：</strong>'+escHtml(o.shop||'')+'</div>';
+    detailHtml += '<div><strong>单号：</strong>'+escHtml(o.orderNo||'')+'</div>';
+    detailHtml += '<div><strong>金额：</strong>¥'+parseFloat(o.amount).toFixed(2)+'</div>';
+    detailHtml += '<div><strong>项目：</strong>'+escHtml(o.project||'')+'</div>';
+    detailHtml += '<div><strong>渠道：</strong>'+escHtml(o.channel||'')+'</div>';
+    detailHtml += '<div><strong>状态：</strong><span class="status-'+statusClass+'">'+st+'</span></div>';
+    detailHtml += '<div><strong>创建时间：</strong>'+(new Date(o.createdAt)).toLocaleString()+'</div>';
+    if(o.screenshot) {
+        detailHtml += '<div class="form-grid-full"><strong>截图：</strong><br><img style="max-width:320px;max-height:180px;object-fit:contain;border-radius:8px;cursor:pointer;border:1px solid #e5e7eb" src="'+o.screenshot+'" alt="截图" onclick="previewImageFull(this.src)" title="点击放大"></div>';
+    }
+    detailHtml += '</div>';
+    c.innerHTML = detailHtml;
+
+    var eBtn = document.getElementById('edit-detail-btn');
+    var dBtn = document.getElementById('delete-detail-btn');
+    if(isUp) {
+        eBtn.disabled=true; eBtn.style.opacity='0.5'; dBtn.disabled=true; dBtn.style.opacity='0.5';
+    } else {
+        eBtn.disabled=false; eBtn.style.opacity='1'; dBtn.disabled=false; dBtn.style.opacity='1';
+    }
+    document.getElementById('detail-modal').classList.remove('hidden');
+}
+function closeDetailModal() { document.getElementById('detail-modal').classList.add('hidden'); currentOrderId=null; }
+
+// ========== Edit ==========
+function openEditModalFromDetail() {
+    closeDetailModal();
+    var o = orders.find(function(x){return x.id===currentOrderId});
+    if(!o) return;
+    document.getElementById('edit-id').value = o.id;
+    document.getElementById('edit-shop').value = o.shop||'';
+    document.getElementById('edit-order-no').value = o.orderNo||'';
+    document.getElementById('edit-amount').value = o.amount||0;
+    document.getElementById('edit-project').value = o.project||'';
+    document.getElementById('edit-channel').value = o.channel||'';
+    document.getElementById('edit-status').value = o.status||'待处理';
+    if(o.screenshot) {
+        document.getElementById('edit-preview-img').src = o.screenshot;
+        document.getElementById('edit-image-preview').classList.remove('hidden');
+    } else { document.getElementById('edit-image-preview').classList.add('hidden'); }
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+function closeEditModal() {
+    document.getElementById('edit-modal').classList.add('hidden');
+    document.getElementById('edit-form').reset();
+    document.getElementById('edit-image-preview').classList.add('hidden');
+}
+function saveEdit() {
+    var id = document.getElementById('edit-id').value;
+    var ex = orders.find(function(x){return x.id===id});
+    var upd = {
+        id:id, shop:document.getElementById('edit-shop').value.trim(),
+        orderNo:document.getElementById('edit-order-no').value.trim(),
+        amount:parseFloat(document.getElementById('edit-amount').value)||0,
+        project:document.getElementById('edit-project').value.trim(),
+        channel:document.getElementById('edit-channel').value.trim(),
+        status:document.getElementById('edit-status').value||(ex?ex.status:'待处理'),
+        createdAt:(ex?ex.createdAt:new Date().toISOString()),
+        screenshot:(ex?ex.screenshot:'')
+    };
+    if(orders.some(function(o){return o.orderNo===upd.orderNo && o.id!==id;})) {
+        showToast('单号已存在', 'error'); return;
+    }
+    var file = document.getElementById('edit-screenshot').files[0];
+    if(file) {
+        upd.status = '已完成';
+        var reader = new FileReader();
+        reader.onload = function(e) { upd.screenshot = e.target.result; finishEdit(upd, id); };
+        reader.readAsDataURL(file);
+    } else { finishEdit(upd, id); }
+}
+function finishEdit(upd, id) {
+    _isSaving = true;
+    supabaseUpdate(id, {
+        shop: upd.shop,
+        order_no: upd.orderNo,
+        amount: upd.amount,
+        project: upd.project,
+        channel: upd.channel,
+        status: upd.status,
+        screenshot: upd.screenshot
+    }).then(function() {
+        _isSaving = false;
+        showToast('订单更新成功');
+        closeEditModal();
+        refreshOrders();
+    }).catch(function(err) {
+        _isSaving = false;
+        showToast('更新失败: ' + err.message, 'error');
+    });
+}
+
+// ========== Delete Current ==========
+function confirmDeleteCurrent() {
+    showConfirm('确定要删除此订单吗？', function(){
+        _isSaving = true;
+        supabaseDelete(currentOrderId).then(function() {
+            _isSaving = false;
+            showToast('订单已删除');
+            closeDetailModal();
+            refreshOrders();
+        }).catch(function(err) {
+            _isSaving = false;
+            showToast('删除失败: ' + err.message, 'error');
+        });
+    });
+}
+
+// ========== Change Status ==========
+function changeStatus(newStatus, orderId) {
+    var o = orders.find(function(x){return x.id===orderId;});
+    if(!o) return;
+    _isSaving = true;
+    supabaseUpdate(orderId, { status: newStatus }).then(function() {
+        _isSaving = false;
+        o.status = newStatus;
+        if(newStatus==='已上传') { renderOrderList(); }
+        else {
+            var row = document.querySelector('tr[data-id="'+orderId+'"]');
+            if(row) {
+                row.className = row.className.replace(/\bg-(yellow|green|red)-(50|100)\b/g,'');
+                var cls = newStatus==='待处理'?'bg-yellow-50':newStatus==='已上传'?'bg-red-100':newStatus==='已完成'?'bg-green-50':'bg-red-50';
+                row.classList.add(cls);
+            }
+        }
+        showSync('已同步');
+    }).catch(function(err) {
+        _isSaving = false;
+        showSync('同步失败', true);
+    });
+}
+
+// ========== Batch Delete ==========
+function batchDelete() {
+    var ids = [];
+    document.querySelectorAll('.order-checkbox:checked').forEach(function(cb){ids.push(cb.dataset.id);});
+    if(ids.length===0){showToast('请至少选择一个订单','error');return;}
+    showConfirm('确定要删除选中的 '+ids.length+' 条订单吗？', function(){
+        _isSaving = true;
+        supabaseDeleteMultiple(ids).then(function() {
+            _isSaving = false;
+            showToast('成功删除 '+ids.length+' 条订单');
+            refreshOrders();
+            document.getElementById('select-all').checked=false;
+        }).catch(function(err) {
+            _isSaving = false;
+            showToast('删除失败: ' + err.message, 'error');
+        });
+    });
+}
+
+// ========== Batch Status ==========
+function openBatchStatusModal() {
+    var ids = [];
+    document.querySelectorAll('.order-checkbox:checked:not(:disabled)').forEach(function(cb){ids.push(cb.dataset.id);});
+    if(ids.length===0){showToast('请至少选择一个订单（已上传状态除外）','error');return;}
+    document.getElementById('batch-status-modal').classList.remove('hidden');
+}
+function executeBatchStatus() {
+    var ids = [];
+    document.querySelectorAll('.order-checkbox:checked:not(:disabled)').forEach(function(cb){ids.push(cb.dataset.id);});
+    var ns = document.getElementById('batch-target-status').value;
+    _isSaving = true;
+    var promises = ids.map(function(id) {
+        return supabaseUpdate(id, { status: ns });
+    });
+    Promise.all(promises).then(function() {
+        _isSaving = false;
+        refreshOrders();
+        document.getElementById('batch-status-modal').classList.add('hidden');
+        showToast('成功修改 '+ids.length+' 条订单状态为「'+ns+'」');
+    }).catch(function(err) {
+        _isSaving = false;
+        showToast('修改失败: ' + err.message, 'error');
+    });
+}
+
+// ========== Stats ==========
+function openStatsModal() {
+    var m = document.getElementById('stats-month');
+    if(m.value) updateStats();
+    document.getElementById('stats-modal').classList.remove('hidden');
+}
+function updateStats() {
+    var mv = document.getElementById('stats-month').value;
+    if(!mv){document.getElementById('stats-content').innerHTML='<p style="color:#9ca3af;">请选择月份</p>';return;}
+    var parts = mv.split('-');
+    var yr = parseInt(parts[0]), mo = parseInt(parts[1]);
+    var mos = orders.filter(function(o){
+        var d = new Date(o.createdAt);
+        return d.getFullYear()===yr && d.getMonth()+1===mo;
+    });
+    var totalC=0, totalA=0;
+    var ss={'待处理':{c:0,a:0},'已上传':{c:0,a:0},'已完成':{c:0,a:0},'已取消':{c:0,a:0}};
+    mos.forEach(function(o){
+        totalC++; totalA+=parseFloat(o.amount)||0;
+        var s=o.status||'待处理';
+        if(ss[s]){ss[s].c++;ss[s].a+=parseFloat(o.amount)||0;}
+    });
+    document.getElementById('stats-content').innerHTML =
+        '<div class="stats-grid">'+
+            '<div class="stat-card"><p class="label">总订单数</p><p class="value">'+totalC+'</p></div>'+
+            '<div class="stat-card"><p class="label">总金额</p><p class="value">¥'+totalA.toFixed(2)+'</p></div>'+
+        '</div>'+
+        '<h4 style="margin-bottom:8px;font-size:14px;color:#374151;">按状态统计</h4>'+
+        '<div class="stat-row pending"><span class="name">待处理</span><span>'+ss['待处理'].c+'条 / ¥'+ss['待处理'].a.toFixed(2)+'</span></div>'+
+        '<div class="stat-row uploaded"><span class="name">已上传</span><span>'+ss['已上传'].c+'条 / ¥'+ss['已上传'].a.toFixed(2)+'</span></div>'+
+        '<div class="stat-row completed"><span class="name">已完成</span><span>'+ss['已完成'].c+'条 / ¥'+ss['已完成'].a.toFixed(2)+'</span></div>'+
+        '<div class="stat-row cancelled"><span class="name">已取消</span><span>'+ss['已取消'].c+'条 / ¥'+ss['已取消'].a.toFixed(2)+'</span></div>';
+}
+
+// ========== Export CSV ==========
+function exportCSV() {
+    if(orders.length===0){showToast('暂无订单数据','error');return;}
+    var headers=['序号','店铺','单号','金额','项目','渠道','状态','创建时间'];
+    var csv=[headers.join(',')];
+    orders.forEach(function(o,i){
+        csv.push([
+            i+1, '"'+(o.shop||'')+'"', '"'+(o.orderNo||'')+'"',
+            o.amount, '"'+(o.project||'')+'"', '"'+(o.channel||'')+'"',
+            '"'+(o.status||'待处理')+'"', '"'+(new Date(o.createdAt)).toLocaleString()+'"'
+        ].join(','));
+    });
+    var blob=new Blob(['\uFEFF'+csv.join('\n')],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='宜嘉订单_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('导出成功');
+}
+
+// ========== Confirm Modal ==========
+function showConfirm(msg, cb) {
+    document.getElementById('confirm-msg').textContent=msg;
+    _confirmCallback=cb;
+    document.getElementById('confirm-modal').classList.remove('hidden');
+}
+function doConfirm() {
+    if(_confirmCallback)_confirmCallback();
+    closeConfirmModal();
+}
+function closeConfirmModal() { document.getElementById('confirm-modal').classList.add('hidden'); _confirmCallback=null; }
+
+// ========== Keyboard shortcuts ==========
+document.addEventListener('keydown', function(e) {
+    if(e.key==='Escape'){
+        closeRegisterModal(); closeEditModal(); closeDetailModal();
+        closeConfirmModal(); document.getElementById('batch-status-modal').classList.add('hidden');
+        document.getElementById('stats-modal').classList.add('hidden');
+        document.getElementById('image-preview-modal').classList.add('hidden');
+    }
+});
+
+// Expose globally
+window.previewImageFull = previewImageFull;
+</script>
+</body>
+</html>
